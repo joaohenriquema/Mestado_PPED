@@ -96,12 +96,12 @@ fjoin_rap_leilao <- function(tabela_rap) {
 }
 
 
-tabela_x <- read_excel("C:/Users/Jo?o/OneDrive/Disserta??o/Base de Dados ANEEL/RESUMO_GERAL_LEILAO_v1.xlsx",
+tabela_x <- read_excel("C:/Users/João/OneDrive/Dissertação/Base de Dados ANEEL/RESUMO_GERAL_LEILAO_v1.xlsx",
                        sheet = 1)
 
 tabela_x <- ftrata_dadosLeilao(tabela_x)
 
-tabela_rap <- read_excel("C:/Users/Jo?o/OneDrive/Disserta??o/Base de Dados ANEEL/RAP_2019.xlsx",
+tabela_rap <- read_excel("C:/Users/João/OneDrive/Dissertação/Base de Dados ANEEL/RAP_2019.xlsx",
                          sheet = 1)
 
 tcompleta <- fjoin_rap_leilao(tabela_rap)
