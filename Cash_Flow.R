@@ -13,7 +13,7 @@ Empreendimento <- list(nome = character(),investimento = numeric(), receita_brut
                              rap_Max = numeric(), rap_Vencedora = numeric(), impostos = numeric(),
                        custo_fixo_admin = numeric(), custo_fixo_depreciacao = numeric(), 
                        anoInicio = numeric(), manutencao = numeric(), treinamento = numeric(),
-                       mao_de_obra = numeric(), servico_publico = numeric())
+                       mao_de_obra = numeric(), servico_publico = numeric(), imposto_de_renda = numeric())
 Empreendimento$nome <- "Lote_15"
 Empreendimento$investimento <- 560497000 #Valor estimado dos investimentos (R$)
 Empreendimento$receita_bruta <- 91197289 #Valor estimado em R$
@@ -27,7 +27,9 @@ Empreendimento$manutencao <- 0.004 #Estimativa percentual dos custos fixos anuai
 Empreendimento$treinamento <- 0.0014 #Estimativa percentual dos custos fixos anuais
 #**** Custos Variáveis****
 Empreendimento$mao_de_obra <- 0.005 #Estimativa percentual dos custos variáveis anuais
-Empreendimento$servico_publico <- 0.005 #Estimativa percentual dos custos variáveis anua
+Empreendimento$servico_publico <- 0.005 #Estimativa percentual dos custos variáveis anual
+
+Empreendimento$imposto_de_renda <- 0.15
 
 Empreendimento$recursos_proprios <- .3 #Fração dos investimentos com recursos próprios
 Empreendimento$rap_Max <- 133273885.72
@@ -39,7 +41,7 @@ var_DRE <- c("Receita_Bruta", "Impostos", "Receita_Liquida",
              "Custos_Fixos_Manutencao","Custos_Fixos_Treinamento",
              "Custos_Var_Mao_de_obra", "Custos_Var_Servicos_Publicos",
              "Total_Custos","Lucro_Bruto","Imposto_de_Renda", 
-             "Lucro_Liquido", "Depreciacao","EBTDA","Investimentos", 
+             "Lucro_Liquido", "EBDA","Investimentos", 
              "Reinvestimento", "Valor_Residual", "Fluxo_de_Caixa_TIR",
              "Recursos_Proprios", "Recursos_de_Terceiros","Pagamento_de_Juro",
              "Pagamento_de_Principal", "Fluxo_de_Caixa","Fluxo_de_Caixa_Acumulado", 
@@ -52,13 +54,12 @@ colnames(receita) <- c(1:30)
 df_DRE <- as.data.frame(receita)
 rm(receita)
 
-
 df_DRE["Receita_Bruta", c(Empreendimento$anoInicio:30)] <- Empreendimento$receita_bruta
 df_DRE["Impostos",] <- Empreendimento$impostos*df_DRE["Receita_Bruta",]
 df_DRE["Receita_Liquida",] <- df_DRE["Receita_Bruta",]-df_DRE["Impostos",]
 
 ####Alocação custos fixos #####
-df_DRE["Custos_Fixos_Admin",] <- Empreendimento$custos_admin*Empreendimento$investimento
+df_DRE["Custos_Fixos_Admin",c(Empreendimento$anoInicio:30)] <- Empreendimento$custos_admin*Empreendimento$investimento
 df_DRE["Custos_Fixos_Depreciacao",c(Empreendimento$anoInicio:30)] <- Empreendimento$custo_fixo_depreciacao*Empreendimento$investimento
 df_DRE["Custos_Fixos_Manutencao",c(Empreendimento$anoInicio:30)] <- Empreendimento$manutencao*Empreendimento$investimento
 df_DRE["Custos_Fixos_Treinamento",c(Empreendimento$anoInicio:30)] <- Empreendimento$treinamento*Empreendimento$investimento
@@ -69,7 +70,18 @@ df_DRE["Custos_Var_Servicos_Publicos",c(Empreendimento$anoInicio:30)] <- Empreen
 df_DRE["Total_Custos",] <- colSums(df_DRE[c("Custos_Fixos_Admin", "Custos_Fixos_Depreciacao","Custos_Fixos_Treinamento",
                                             "Custos_Fixos_Manutencao", "Custos_Var_Mao_de_obra", "Custos_Var_Servicos_Publicos"),],na.rm = TRUE)
 
+df_DRE["Lucro_Bruto",] <- df_DRE["Receita_Liquida",] - df_DRE["Total_Custos",]
+df_DRE["Imposto_de_Renda",] <- df_DRE["Lucro_Bruto",]*Empreendimento$imposto_de_renda
+df_DRE["Lucro_Liquido",] <- df_DRE["Lucro_Bruto",] - df_DRE["Imposto_de_Renda",]
+df_DRE["EBDA",] <- df_DRE["Lucro_Liquido",] + df_DRE["Custos_Fixos_Depreciacao",]
 
-
-
-
+#### Quadro de usos e fontes ####
+aux <- Empreendimento$anoInicio-1
+fracao_invest <- c(1:aux)
+  if(aux == 3) { fracao_invest <- c(0.1, 0.5, 0.4) 
+  } else if (aux == 4) { fracao_invest <- c(0.1, 0.4, 0.4, 0.1)
+  } else if (aux == 5) { fracao_invest<- c(0.1, 0.3, 0.3, 0.2, 0.1)
+  } else {fracao_invest <- 1/aux}
+df_DRE["Investimentos",c(1:aux)] <- -Empreendimento$investimento*fracao_invest
+df_DRE["Fluxo_de_Caixa_TIR",] <- colSums(df_DRE[c("Investimentos", "EBDA"),],
+                                         na.rm = TRUE)
