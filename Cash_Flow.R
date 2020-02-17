@@ -19,7 +19,7 @@ Empreendimento$investimento <- 560497000 #Valor estimado dos investimentos (R$)
 Empreendimento$receita_bruta <- 91197289 #Valor estimado em R$
 Empreendimento$impostos <- 0.09 #Estimativa da taxa dos impostos totais, exceto IR
 Empreendimento$taxa_real <- 0.044 #Estimativa de juros real
-Empreendimento$anoInicio <-  5 #Ano de entrada em operação após o leilão
+Empreendimento$anoInicio <-  6 #Ano de entrada em operação após o leilão
 #**** Custos Fixos****
 Empreendimento$custos_admin <- 0.0046 #Estimativa percentual dos custos fixos administrativos anuais
 Empreendimento$custo_fixo_depreciacao <- 0.056716 #Estimativa percentual dos custos fixos anuais relativo à depreciação
@@ -42,8 +42,8 @@ var_DRE <- c("Receita_Bruta", "Impostos", "Receita_Liquida",
              "Custos_Var_Mao_de_obra", "Custos_Var_Servicos_Publicos",
              "Total_Custos","Lucro_Bruto","Imposto_de_Renda", 
              "Lucro_Liquido", "EBDA","Investimentos", 
-             "Reinvestimento", "Valor_Residual", "Fluxo_de_Caixa_TIR",
-             "Recursos_Proprios", "Recursos_de_Terceiros","Pagamento_de_Juro",
+             "Reinvestimento", "Valor_Residual", "Fluxo_de_Caixa_TIR","Recursos_Proprios",
+             "Recursos_de_Terceiros", "Saldo_Inicial","Saldo_Devedor","Pagamento_Juros",
              "Pagamento_de_Principal", "Fluxo_de_Caixa","Fluxo_de_Caixa_Acumulado", 
              "Fluxo_de_Caixa_Acumulado_conta_reserva", "ICSD_Caixa_Anual",
              "ICSD_Caixa_Acumulado","TIR_Projeto", "Fluxo_Caixa_TIR_Acionista",
@@ -52,6 +52,8 @@ receita <- matrix(nrow = length(var_DRE), ncol = 30)
 rownames(receita)<- var_DRE
 colnames(receita) <- c(1:30)
 df_DRE <- as.data.frame(receita)
+i <- is.numeric(i)
+for (i in 1:30) {df_DRE[,i] <- df_DRE[,i] %>% replace_na(0)}
 rm(receita)
 
 df_DRE["Receita_Bruta", c(Empreendimento$anoInicio:30)] <- Empreendimento$receita_bruta
@@ -80,8 +82,29 @@ aux <- Empreendimento$anoInicio-1
 fracao_invest <- c(1:aux)
   if(aux == 3) { fracao_invest <- c(0.1, 0.5, 0.4) 
   } else if (aux == 4) { fracao_invest <- c(0.1, 0.4, 0.4, 0.1)
-  } else if (aux == 5) { fracao_invest<- c(0.1, 0.3, 0.3, 0.2, 0.1)
+  } else if (aux == 5) { fracao_invest<- c(0.1, 0.3, 0.4, 0.1, 0.1)
   } else {fracao_invest <- 1/aux}
 df_DRE["Investimentos",c(1:aux)] <- -Empreendimento$investimento*fracao_invest
 df_DRE["Fluxo_de_Caixa_TIR",] <- colSums(df_DRE[c("Investimentos", "EBDA"),],
                                          na.rm = TRUE)
+df_DRE["Recursos_Proprios",] <- -df_DRE["Investimentos",]*Empreendimento$recursos_proprios
+df_DRE["Recursos_de_Terceiros",] <- -df_DRE["Investimentos",]*(1-Empreendimento$recursos_proprios)
+##### Cálculo dos juros anuais ####
+
+for(i in 1:30) {
+  if (i == 1) {
+      df_DRE["Saldo_Inicial",1] <- df_DRE["Recursos_de_Terceiros",1] 
+      df_DRE["Pagamento_Juros",1] <- Empreendimento$taxa_real*df_DRE["Saldo_Inicial",1]
+      df_DRE["Saldo_Devedor",1] <- df_DRE["Saldo_Inicial",1] + df_DRE["Pagamento_Juros",1]
+  } else if (i>1 & i <= aux) {
+  df_DRE["Saldo_Inicial", i] <- df_DRE["Saldo_Devedor", i-1] + df_DRE["Recursos_de_Terceiros", i]
+  df_DRE["Pagamento_Juros", i] <- Empreendimento$taxa_real*df_DRE["Saldo_Inicial",i]
+  df_DRE["Saldo_Devedor",i] <- df_DRE["Saldo_Inicial", i] + df_DRE["Pagamento_Juros", i]
+  } else if (i > aux) {
+    df_DRE["Saldo_Inicial", i] <- df_DRE["Saldo_Devedor", i-1]
+    df_DRE["Pagamento_de_Principal",c(Empreendimento$anoInicio:30)] <- 
+              df_DRE["Saldo_Inicial", Empreendimento$anoInicio]/(30-aux) 
+    df_DRE["Pagamento_Juros", i] <- Empreendimento$taxa_real*df_DRE["Saldo_Inicial",i]
+    df_DRE["Saldo_Devedor", i] <- df_DRE["Saldo_Inicial", i] - df_DRE["Pagamento_de_Principal",i]
+  }
+}
