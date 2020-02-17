@@ -42,10 +42,10 @@ var_DRE <- c("Receita_Bruta", "Impostos", "Receita_Liquida",
              "Custos_Var_Mao_de_obra", "Custos_Var_Servicos_Publicos",
              "Total_Custos","Lucro_Bruto","Imposto_de_Renda", 
              "Lucro_Liquido", "EBDA","Investimentos", 
-             "Reinvestimento", "Valor_Residual", "Fluxo_de_Caixa_TIR","Recursos_Proprios",
+             "Reinvestimento", "Valor_Residual", "Recursos_Proprios",
              "Recursos_de_Terceiros", "Saldo_Inicial","Saldo_Devedor","Pagamento_Juros",
-             "Pagamento_de_Principal", "Fluxo_de_Caixa","Fluxo_de_Caixa_Acumulado", 
-             "Fluxo_de_Caixa_Acumulado_conta_reserva", "ICSD_Caixa_Anual",
+             "Pagamento_de_Principal", "Fluxo_de_Caixa_TIR", "Fluxo_de_Caixa",
+             "Fluxo_de_Caixa_Acumulado", "Fluxo_de_Caixa_TIR_Acionista", "ICSD_Caixa_Anual",
              "ICSD_Caixa_Acumulado","TIR_Projeto", "Fluxo_Caixa_TIR_Acionista",
              "TIR_Acionista")
 receita <- matrix(nrow = length(var_DRE), ncol = 30)
@@ -68,7 +68,7 @@ df_DRE["Custos_Fixos_Treinamento",c(Empreendimento$anoInicio:30)] <- Empreendime
 ####Alocação custos variáveis #####
 df_DRE["Custos_Var_Mao_de_obra",c(Empreendimento$anoInicio:30)] <- Empreendimento$mao_de_obra*Empreendimento$investimento
 df_DRE["Custos_Var_Servicos_Publicos",c(Empreendimento$anoInicio:30)] <- Empreendimento$servico_publico*Empreendimento$investimento
-#### Custos Totais ####
+#### Custos e Receitas Totais ####
 df_DRE["Total_Custos",] <- colSums(df_DRE[c("Custos_Fixos_Admin", "Custos_Fixos_Depreciacao","Custos_Fixos_Treinamento",
                                             "Custos_Fixos_Manutencao", "Custos_Var_Mao_de_obra", "Custos_Var_Servicos_Publicos"),],na.rm = TRUE)
 
@@ -89,8 +89,8 @@ df_DRE["Fluxo_de_Caixa_TIR",] <- colSums(df_DRE[c("Investimentos", "EBDA"),],
                                          na.rm = TRUE)
 df_DRE["Recursos_Proprios",] <- -df_DRE["Investimentos",]*Empreendimento$recursos_proprios
 df_DRE["Recursos_de_Terceiros",] <- -df_DRE["Investimentos",]*(1-Empreendimento$recursos_proprios)
-##### Cálculo dos juros anuais ####
 
+##### Montagem do Fluxo de Caixa ####
 for(i in 1:30) {
   if (i == 1) {
       df_DRE["Saldo_Inicial",1] <- df_DRE["Recursos_de_Terceiros",1] 
@@ -108,3 +108,8 @@ for(i in 1:30) {
     df_DRE["Saldo_Devedor", i] <- df_DRE["Saldo_Inicial", i] - df_DRE["Pagamento_de_Principal",i]
   }
 }
+df_DRE["Fluxo_de_Caixa_TIR",] <- df_DRE["EBDA",] + df_DRE["Investimentos",]
+df_DRE["Fluxo_de_Caixa",c(Empreendimento$anoInicio:30)] <-  df_DRE["Fluxo_de_Caixa_TIR",c(Empreendimento$anoInicio:30)] + 
+                df_DRE["Recursos_Proprios", c(Empreendimento$anoInicio:30)] - df_DRE["Recursos_de_Terceiros",c(Empreendimento$anoInicio:30)] -
+                df_DRE["Pagamento_Juros",c(Empreendimento$anoInicio:30)] - df_DRE["Pagamento_de_Principal",c(Empreendimento$anoInicio:30)]
+
