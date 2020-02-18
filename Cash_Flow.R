@@ -113,3 +113,4 @@ df_DRE["Fluxo_de_Caixa",c(Empreendimento$anoInicio:30)] <-  df_DRE["Fluxo_de_Cai
                 df_DRE["Recursos_Proprios", c(Empreendimento$anoInicio:30)] - df_DRE["Recursos_de_Terceiros",c(Empreendimento$anoInicio:30)] -
                 df_DRE["Pagamento_Juros",c(Empreendimento$anoInicio:30)] - df_DRE["Pagamento_de_Principal",c(Empreendimento$anoInicio:30)]
 
+for (i in 2:30) {df_DRE["Fluxo_de_Caixa_Acumulado",i] <- df_DRE["Fluxo_de_Caixa_Acumulado",i-1] + df_DRE["Fluxo_de_Caixa",i]}
