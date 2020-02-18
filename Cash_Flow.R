@@ -7,13 +7,15 @@ library("tidyr")
 library(dplyr)
 library(lubridate)
 library(reshape2)
+library(FinancialMath)
 
 Empreendimento <- list(nome = character(),investimento = numeric(), receita_bruta = numeric()
-                             , taxa_real= numeric(), recursos_proprios = numeric(),
-                             rap_Max = numeric(), rap_Vencedora = numeric(), impostos = numeric(),
+                        , taxa_real= numeric(), recursos_proprios = numeric(),
+                        rap_Max = numeric(), rap_Vencedora = numeric(), impostos = numeric(),
                        custo_fixo_admin = numeric(), custo_fixo_depreciacao = numeric(), 
                        anoInicio = numeric(), manutencao = numeric(), treinamento = numeric(),
-                       mao_de_obra = numeric(), servico_publico = numeric(), imposto_de_renda = numeric())
+                       mao_de_obra = numeric(), servico_publico = numeric(), 
+                       imposto_de_renda = numeric(), TIR = numeric(), TIR_ACIONISTA = numeric())
 Empreendimento$nome <- "Lote_15"
 Empreendimento$investimento <- 560497000 #Valor estimado dos investimentos (R$)
 Empreendimento$receita_bruta <- 91197289 #Valor estimado em R$
@@ -36,18 +38,14 @@ Empreendimento$rap_Max <- 133273885.72
 Empreendimento$rap_Vencedora <- 52510000
 
 ####Criação da tabela de dados####
-var_DRE <- c("Receita_Bruta", "Impostos", "Receita_Liquida", 
-             "Custos_Fixos_Admin","Custos_Fixos_Depreciacao",
-             "Custos_Fixos_Manutencao","Custos_Fixos_Treinamento",
-             "Custos_Var_Mao_de_obra", "Custos_Var_Servicos_Publicos",
-             "Total_Custos","Lucro_Bruto","Imposto_de_Renda", 
-             "Lucro_Liquido", "EBDA","Investimentos", 
-             "Reinvestimento", "Valor_Residual", "Recursos_Proprios",
-             "Recursos_de_Terceiros", "Saldo_Inicial","Saldo_Devedor","Pagamento_Juros",
-             "Pagamento_de_Principal", "Fluxo_de_Caixa_TIR", "Fluxo_de_Caixa",
-             "Fluxo_de_Caixa_Acumulado", "Fluxo_de_Caixa_TIR_Acionista", "ICSD_Caixa_Anual",
-             "ICSD_Caixa_Acumulado","TIR_Projeto", "Fluxo_Caixa_TIR_Acionista",
-             "TIR_Acionista")
+var_DRE <- c("Receita_Bruta", "Impostos", "Receita_Liquida", "Custos_Fixos_Admin",
+             "Custos_Fixos_Depreciacao", "Custos_Fixos_Manutencao","Custos_Fixos_Treinamento",
+             "Custos_Var_Mao_de_obra", "Custos_Var_Servicos_Publicos", "Total_Custos",
+             "Lucro_Bruto","Imposto_de_Renda", "Lucro_Liquido", "EBDA","Investimentos", 
+             "Recursos_Proprios","Recursos_de_Terceiros", "Saldo_Inicial","Saldo_Devedor",
+             "Pagamento_Juros", "Pagamento_de_Principal", "Fluxo_de_Caixa_TIR", "Fluxo_de_Caixa",
+             "Fluxo_de_Caixa_Acumulado", "ICSD_Caixa_Anual", "ICSD_Caixa_Acumulado",
+             "Fluxo_Caixa_TIR_Acionista")
 receita <- matrix(nrow = length(var_DRE), ncol = 30)
 rownames(receita)<- var_DRE
 colnames(receita) <- c(1:30)
@@ -114,3 +112,26 @@ df_DRE["Fluxo_de_Caixa",c(Empreendimento$anoInicio:30)] <-  df_DRE["Fluxo_de_Cai
                 df_DRE["Pagamento_Juros",c(Empreendimento$anoInicio:30)] - df_DRE["Pagamento_de_Principal",c(Empreendimento$anoInicio:30)]
 
 for (i in 2:30) {df_DRE["Fluxo_de_Caixa_Acumulado",i] <- df_DRE["Fluxo_de_Caixa_Acumulado",i-1] + df_DRE["Fluxo_de_Caixa",i]}
+
+##### Cálculo dos Índices de Cobertura #####
+df_DRE["ICSD_Caixa_Anual",] <- df_DRE["EBDA",]/( df_DRE["Pagamento_Juros",]+ df_DRE["Pagamento_de_Principal",])
+df_DRE["ICSD_Caixa_Acumulado",c(Empreendimento$anoInicio:30)] <- 
+  (df_DRE["Fluxo_de_Caixa_TIR",c(Empreendimento$anoInicio:30)] + 
+     lag(df_DRE["Fluxo_de_Caixa_Acumulado",c(Empreendimento$anoInicio:30)], 1))/
+  ( df_DRE["Pagamento_Juros",c(Empreendimento$anoInicio:30)]+ 
+      df_DRE["Pagamento_de_Principal",c(Empreendimento$anoInicio:30)])
+df_DRE["ICSD_Caixa_Acumulado",Empreendimento$anoInicio] <- df_DRE["ICSD_Caixa_Anual",Empreendimento$anoInicio]
+
+
+##### Fluxo de caixa para os Acionistas #####
+df_DRE["Fluxo_Caixa_TIR_Acionista",c(1:Empreendimento$anoInicio)] <- -df_DRE["Recursos_Proprios",c(1:Empreendimento$anoInicio)]
+df_DRE["Fluxo_Caixa_TIR_Acionista",c(Empreendimento$anoInicio:30)] <- df_DRE["Fluxo_de_Caixa_TIR",c(Empreendimento$anoInicio:30)] - 
+  df_DRE["Pagamento_Juros",c(Empreendimento$anoInicio:30)] - df_DRE["Pagamento_de_Principal",c(Empreendimento$anoInicio:30)]
+
+##### Cálculo da TIR ####
+vetorTIR <- as.vector(as.numeric(df_DRE["Fluxo_de_Caixa_TIR",]))
+vetorTIR_Acionista <- as.vector(as.numeric(df_DRE["Fluxo_Caixa_TIR_Acionista",]))
+Empreendimento$TIR = IRR(cf0 = 0, cf=vetorTIR,times = c(1:30), plot = TRUE)
+Empreendimento$TIR_ACIONISTA <- IRR(cf0 = 0, cf=vetorTIR_Acionista,times = c(1:30), plot = TRUE)
+str(Empreendimento$TIR_ACIONISTA)
+                         
