@@ -137,7 +137,7 @@ return(Saida)
 
 
 Lote15_a <- fCash_Flow("teste", 560497000, 0.044, 6, 61630000) 
-Lote15_b <- fCash_Flow("teste", 560497000, 0.044, 5, 61630000) 
+# Lote15_b <- fCash_Flow("teste", 560497000, 0.044, 5, 61630000) 
 Lote16 <- fCash_Flow("teste", 64146090.61, 0.044, 6, 5800000) 
 Lote18 <- fCash_Flow("teste", 57436000, 0.044, 6, 7800000) 
 tt <- list(Lote15, Lote16, Lote18)
