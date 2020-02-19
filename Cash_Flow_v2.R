@@ -128,17 +128,17 @@ df_DRE["Fluxo_Caixa_TIR_Acionista",c(anoInicio:anos_Concessao)] <- df_DRE["Fluxo
 ##### Cálculo da TIR ####
 vetorTIR <- as.vector(as.numeric(df_DRE["Fluxo_de_Caixa_TIR",]))
 vetorTIR_Acionista <- as.vector(as.numeric(df_DRE["Fluxo_Caixa_TIR_Acionista",]))
-TIR = IRR(cf0 = 0, cf=vetorTIR,times = c(1:anos_Concessao), plot = TRUE)
-TIR_ACIONISTA <- IRR(cf0 = 0, cf=vetorTIR_Acionista,times = c(1:anos_Concessao), plot = TRUE)
+TIR = IRR(cf0 = 0, cf=vetorTIR,times = c(1:anos_Concessao), plot = FALSE)
+TIR_ACIONISTA <- IRR(cf0 = 0, cf=vetorTIR_Acionista,times = c(1:anos_Concessao), plot = FALSE)
 str(TIR_ACIONISTA)
 Saida <- list(TIR = TIR[1], TIR_ACIONISTA = TIR_ACIONISTA[1], Indice_Cobertura = df_DRE["ICSD_Caixa_Anual",anoInicio])
 return(Saida)
 }
 
 
-Lote15_a <- fCash_Flow("teste", 560497000, 0.044, 6, 61630000) 
-# Lote15_b <- fCash_Flow("teste", 560497000, 0.044, 5, 61630000) 
-Lote16 <- fCash_Flow("teste", 64146090.61, 0.044, 6, 5800000) 
-Lote18 <- fCash_Flow("teste", 57436000, 0.044, 6, 7800000) 
-tt <- list(Lote15, Lote16, Lote18)
-tt
+# Lote15_a <- fCash_Flow("teste", 560497000, 0.044, 6, 61630000) 
+# # Lote15_b <- fCash_Flow("teste", 560497000, 0.044, 5, 61630000) 
+# Lote16 <- fCash_Flow("teste", 64146090.61, 0.044, 6, 5800000) 
+# Lote18 <- fCash_Flow("teste", 57436000, 0.044, 6, 7800000) 
+# tt <- list(Lote15, Lote16, Lote18)
+# tt
