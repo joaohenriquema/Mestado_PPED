@@ -152,13 +152,15 @@ df_DRE["Fluxo_de_Caixa_Acumulado",1] <- df_DRE["Fluxo_de_Caixa",1]
   TIR = IRR(cf0 = 0, cf=vetorTIR,times = c(1:anos_Concessao), plot = FALSE)
   TIR_ACIONISTA <- IRR(cf0 = 0, cf=vetorTIR_Acionista,times = c(1:anos_Concessao), plot = FALSE)
   str(TIR_ACIONISTA)
-  Saida <- list(TIR = TIR[1], TIR_ACIONISTA = TIR_ACIONISTA[1], Indice_Cobertura = df_DRE["ICSD_Caixa_Anual",anoInicio])
+  Saida <- list(Lote = nome, TIR = TIR[1], TIR_ACIONISTA = TIR_ACIONISTA[1],
+                Indice_Cobertura = df_DRE["ICSD_Caixa_Anual",1],
+                AnoInicio = anoInicio, Juros = taxa_real)
   return(Saida)
 }
 
 
-LoteJ <- fCash_Flow(t$contrato_da_receita[241], t$invest_contrato[241],
-                     0.044, 5, t$proposta_RAP[241])
+# LoteJ <- fCash_Flow(t$contrato_da_receita[241], t$invest_contrato[241],
+#                      0.044, 5, t$proposta_RAP[241])
 
 # Lote15_a <- fCash_Flow("teste", 560497000, 0.044, 6, 61630000) - ok
 # Lote15_b <- fCash_Flow("teste", 560497000, 0.044, 5, 61630000) - ok
