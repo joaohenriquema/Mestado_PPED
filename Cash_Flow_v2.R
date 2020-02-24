@@ -12,12 +12,31 @@ library(FinancialMath)
 fCash_Flow <- function(nome, investimento, taxa_real, anoInicio, receita_bruta) {
 
 ##### Dados de Entrada dos Empreendimentos
-nome <- nome 
-investimento <- investimento  #Valor estimado dos investimentos R$
-taxa_real <- taxa_real #Estimativa de juros real 
-anoInicio <-  anoInicio #Ano de entrada em operação após o leilão
-
-receita_bruta <- receita_bruta  #Valor da RAP estimado em R$
+  nome <- nome
+# investimento  #Valor estimado dos investimentos R$
+ if (is.numeric(investimento) == FALSE) {
+    investimento <- as.numeric(investimento)
+  } else {
+    investimento <- investimento
+  }
+#taxa_real #Estimativa de juros real 
+ if (is.numeric(taxa_real) == FALSE) {
+   taxa_real <- as.numeric(taxa_real)
+  } else {
+    taxa_real <- taxa_real
+  }
+# anoInicio #Ano de entrada em operação após o leilão
+if (is.numeric(anoInicio) == FALSE) {
+  anoInicio <- as.numeric(anoInicio)
+  } else {
+    anoInicio <- anoInicio
+  }
+# receita_bruta  #Valor da RAP estimado em R$
+if (is.numeric(receita_bruta) == FALSE) {
+  receita_bruta <- as.numeric(receita_bruta)
+  } else {
+    receita_bruta <- receita_bruta
+  }
 
 ##### Dados parametrizados para estimativa dos Custos Fixos ####
 impostos <- 0.09  #Estimativa da taxa dos impostos totais, exceto IR (9%)
@@ -108,37 +127,42 @@ df_DRE["Fluxo_de_Caixa",c(anoInicio:anos_Concessao)] <-  df_DRE["Fluxo_de_Caixa_
                 df_DRE["Recursos_Proprios", c(anoInicio:anos_Concessao)] - df_DRE["Recursos_de_Terceiros",c(anoInicio:anos_Concessao)] -
                 df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)] - df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)]
 
-df_DRE["Fluxo_de_Caixa_Acumulado",] <- lag(df_DRE["Fluxo_de_Caixa_Acumulado",],1) + df_DRE["Fluxo_de_Caixa",i]
+
+df_DRE["Fluxo_de_Caixa_Acumulado",] <- lag(df_DRE["Fluxo_de_Caixa_Acumulado",],1) + df_DRE["Fluxo_de_Caixa",]
+df_DRE["Fluxo_de_Caixa_Acumulado",1] <- df_DRE["Fluxo_de_Caixa",1]
 
 ##### Cálculo dos Índices de Cobertura #####
-df_DRE["ICSD_Caixa_Anual",] <- df_DRE["EBDA",]/( df_DRE["Pagamento_Juros",]+ df_DRE["Pagamento_de_Principal",])
-df_DRE["ICSD_Caixa_Acumulado",c(anoInicio:anos_Concessao)] <- 
-  (df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] + 
-     lag(df_DRE["Fluxo_de_Caixa_Acumulado",c(anoInicio:anos_Concessao)], 1))/
-  ( df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)]+ 
-      df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)])
-df_DRE["ICSD_Caixa_Acumulado",anoInicio] <- df_DRE["ICSD_Caixa_Anual",anoInicio]
+  df_DRE["ICSD_Caixa_Anual",] <- df_DRE["EBDA",]/( df_DRE["Pagamento_Juros",]+ df_DRE["Pagamento_de_Principal",])
+  df_DRE["ICSD_Caixa_Acumulado",c(anoInicio:anos_Concessao)] <- 
+    (df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] + 
+       lag(df_DRE["Fluxo_de_Caixa_Acumulado",c(anoInicio:anos_Concessao)], 1))/
+    ( df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)]+ 
+        df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)])
+  df_DRE["ICSD_Caixa_Acumulado",anoInicio] <- df_DRE["ICSD_Caixa_Anual",anoInicio]
 
 
 ##### Fluxo de caixa para os Acionistas #####
-df_DRE["Fluxo_Caixa_TIR_Acionista",c(1:anoInicio)] <- -df_DRE["Recursos_Proprios",c(1:anoInicio)]
-df_DRE["Fluxo_Caixa_TIR_Acionista",c(anoInicio:anos_Concessao)] <- df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] - 
+  df_DRE["Fluxo_Caixa_TIR_Acionista",c(1:anoInicio)] <- -df_DRE["Recursos_Proprios",c(1:anoInicio)]
+  df_DRE["Fluxo_Caixa_TIR_Acionista",c(anoInicio:anos_Concessao)] <- df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] - 
   df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)] - df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)]
 
 ##### Cálculo da TIR ####
-vetorTIR <- as.vector(as.numeric(df_DRE["Fluxo_de_Caixa_TIR",]))
-vetorTIR_Acionista <- as.vector(as.numeric(df_DRE["Fluxo_Caixa_TIR_Acionista",]))
-TIR = IRR(cf0 = 0, cf=vetorTIR,times = c(1:anos_Concessao), plot = FALSE)
-TIR_ACIONISTA <- IRR(cf0 = 0, cf=vetorTIR_Acionista,times = c(1:anos_Concessao), plot = FALSE)
-str(TIR_ACIONISTA)
-Saida <- list(TIR = TIR[1], TIR_ACIONISTA = TIR_ACIONISTA[1], Indice_Cobertura = df_DRE["ICSD_Caixa_Anual",anoInicio])
-return(Saida)
+  vetorTIR <- as.vector(as.numeric(df_DRE["Fluxo_de_Caixa_TIR",]))
+  vetorTIR_Acionista <- as.vector(as.numeric(df_DRE["Fluxo_Caixa_TIR_Acionista",]))
+  TIR = IRR(cf0 = 0, cf=vetorTIR,times = c(1:anos_Concessao), plot = FALSE)
+  TIR_ACIONISTA <- IRR(cf0 = 0, cf=vetorTIR_Acionista,times = c(1:anos_Concessao), plot = FALSE)
+  str(TIR_ACIONISTA)
+  Saida <- list(TIR = TIR[1], TIR_ACIONISTA = TIR_ACIONISTA[1], Indice_Cobertura = df_DRE["ICSD_Caixa_Anual",anoInicio])
+  return(Saida)
 }
 
 
-# Lote15_a <- fCash_Flow("teste", 560497000, 0.044, 6, 61630000) 
-# # Lote15_b <- fCash_Flow("teste", 560497000, 0.044, 5, 61630000) 
-# Lote16 <- fCash_Flow("teste", 64146090.61, 0.044, 6, 5800000) 
-# Lote18 <- fCash_Flow("teste", 57436000, 0.044, 6, 7800000) 
+LoteJ <- fCash_Flow(t$contrato_da_receita[241], t$invest_contrato[241],
+                     0.044, 5, t$proposta_RAP[241])
+
+# Lote15_a <- fCash_Flow("teste", 560497000, 0.044, 6, 61630000) - ok
+# Lote15_b <- fCash_Flow("teste", 560497000, 0.044, 5, 61630000) - ok
+# Lote16 <- fCash_Flow("teste", 64146090.61, 0.044, 6, 5800000) - ok
+# Lote18 <- fCash_Flow("teste", 57436000, 0.044, 6, 7800000) - ok
 # tt <- list(Lote15, Lote16, Lote18)
 # tt

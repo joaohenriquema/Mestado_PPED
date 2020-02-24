@@ -49,7 +49,7 @@ return (tabela_a)
 }
 
 
-#Fun??o que trata os dados da tabela rap 2019 e faz o inner_join com a tabela com os dados do leil?o
+#Funcao que trata os dados da tabela rap 2019 e faz o inner_join com a tabela com os dados do leil?o
 fjoin_rap_leilao <- function(tabela_rap) {
   
   names(tabela_rap)[1:31] <- c("edificacao", "modulo","id_mdl", "classificacao", 
@@ -70,30 +70,41 @@ fjoin_rap_leilao <- function(tabela_rap) {
     #exclui empreendimentos fora da RB
     filter(classificacao != "DIT", classificacao != "ICG",
            classificacao != "IEG") %>% 
-    #separa a FT em uma vari?vel
+    #separa a FT em uma variavel
     mutate(ft_especifico = (str_split(funcao_transmissao, " ")),
            ft_especifico = lapply(ft_especifico, 
                                   function(e){unlist(e[2])})) %>% 
-    #cria vari?veis que somam a rap de cada lote (contrato de concess?o)
+    #cria variaveis que somam a rap de cada lote (contrato de concess?o)
     group_by(contrato_do_modulo) %>%
     mutate(rap_total_atoLegal = sum(rap_equip_atolegal), 
            rap_lote_hj = sum(rap_ciclo),
            rap_percent_hj = rap_ciclo/rap_lote_hj) %>%
-    #ordena algumas colunas para facilitar a vizualiza??o - view()
+    #ordena algumas colunas para facilitar a vizualizacao - view()
     select(contrato_do_modulo, funcao_transmissao, rap_total_atoLegal, rap_equip_atolegal,
            rap_lote_hj,rap_ciclo,rap_percent_hj,modulo, everything())
     
-  # uni as tabelas referente ?s RAPs ciclo 2019 e compilado dos lei?es (que possui as 
-  #informa??es dos investimentos estimados pela ANEEL e em alguns casos o valor das propostas)
-  tCompleta <- tabela_rap_RB %>%
+  # uni as tabelas referente as RAPs ciclo 2019 e compilado dos leiloes (que possui as 
+  #informacoes dos investimentos estimados pela ANEEL e em alguns casos o valor das propostas)
+  tcompleta <- tabela_rap_RB %>%
     inner_join(tabela_x, by = c("contrato_da_receita" = "contrato_de_concessao"),
                suffix = c("_trap","_tleilao"))  %>%
     select(contrato_da_receita, funcao_transmissao, rap_total_atoLegal, proposta_RAP, edital_rap,
            rap_lote_hj, rap_equip_atolegal, rap_ciclo,rap_percent_hj,modulo, everything())
   
-  return(tCompleta)
+  #Adiciona variáveis para serem utilizadas no fluxo de caixa descontado
+  tcompleta <- tcompleta %>%
+                mutate(anos_vigencia = year(fim_de_vigencia) - year(inicio_de_vigencia),
+                       ano_inicio = year(inicio_de_vigencia) - year(data))
+  
+  
+  #conversão para número forçada, para evitar erros posteriores
+  tcompleta$invest_contrato = round(as.numeric(tcompleta$invest_contrato), digits = 2)
+  tcompleta$proposta_RAP <- as.numeric(tcompleta$proposta_RAP)
+  return(tcompleta)
   
 }
+
+
 
 
 tabela_x <- read_excel("C:/Users/João/OneDrive/Dissertação/Base de Dados ANEEL/RESUMO_GERAL_LEILAO_v1.xlsx",
@@ -106,41 +117,51 @@ tabela_rap <- read_excel("C:/Users/João/OneDrive/Dissertação/Base de Dados AN
 
 tcompleta <- fjoin_rap_leilao(tabela_rap)
 
+#Situações para reflexão
+#A data de entrada em operação é diferente do início da vigência do contrato, 
+#isso pode sinalizar um avaliação de expectativa de antencipação da empresa.
+# tt  <- filter(tcompleta, operacao_comercial != inicio_de_vigencia)
+
+#Entrada em operação = a data do leilão
+
+
 t <-  tcompleta %>%
-      group_by(contrato_da_receita, leilao, lote, data, concessionaria_da_raceita, 
-               proposta_RAP, invest_contrato) %>%
-      summarize("Rap (Milh?esR$)" = sum(rap_equip_atolegal)/1E6,
-               rap_leilao = sum(proposta_RAP)/n(),
-               dif_rap_percent = (`Rap (Milh?esR$)` - rap_leilao)/rap_leilao)
+              # mutate(invest_contrato = round(as.numeric(invest_contrato,digits = 2))) %>%
+              group_by(contrato_da_receita, leilao, lote, data, concessionaria_da_raceita, 
+                        proposta_RAP, invest_contrato, edital_rap) %>%
+              filter(is.na(invest_contrato) == FALSE) %>%
+              summarize("Rap (MR$)" = sum(rap_equip_atolegal)/1E6,
+                          rap_leilao = sum(proposta_RAP)/n(),
+                          dif_rap_percent = (1E6*`Rap (MR$)` - rap_leilao)/rap_leilao*100,
+                          taxa_juros = 0.044,
+                          ano_inicio = 5)
 
 
-t1 <- tcompleta %>% filter(ft_especifico == "LT") #observar a existencia de m?dulos EL e RTL inclusos
+t1 <- tcompleta %>% filter(ft_especifico == "LT") #observar a existencia de modulos EL e RTL inclusos
 
-ggplot(t, aes(x = t$data, y = t$dif_rap_percent)) + geom_point()  
 
-library(ggplot2)
 
-t1 <- arrange(t,data)
-Leilao <- paste(t1$data, t1$leilao, sep = " ")
-t1_plot <-t1 %>%
-ggplot(aes(x = Leilao ,y = `Rap (Milh?esR$)`, fill = factor(lote)))
 
-colourCount = length(unique(t1$lote))
-getPalette = colorRampPalette(brewer.pal(9, "Set1"))
 
-t1_plot +  
-  geom_bar(stat="identity", colour = "black") +
-  scale_fill_manual(values = getPalette(colourCount)) +
- # scale_fill_brewer(palette = "Set2")
-
-    
-  # geom_text(aes(label = lote), vjust=0) +
-
-    theme(legend.direction = "horizontal",
-          legend.box = "vertical",
-          legend.position = c(0.005,0.99),
-          legend.justification = c(0, 1),
-          axis.text.x = element_text(angle=90, hjust=1))
+##### Plota gráfico de Barra Volume RAP de todos os leiloes ####
+# ggplot(t, aes(x = t$data, y = t$dif_rap_percent)) + geom_point()
+# 
+# library(ggplot2)
+# 
+# t1 <- arrange(t,data)
+# Leilao <- paste(t1$data, t1$leilao, sep = " ")
+# t1_plot <-t1 %>%
+# ggplot(aes(x = Leilao ,y = `Rap (MilhoesR$)`, fill = factor(lote)))
+# colourCount = length(unique(t1$lote))
+# getPalette = colorRampPalette(brewer.pal(9, "Set1"))
+# t1_plot +
+#   geom_bar(stat="identity", colour = "black") +
+#   scale_fill_manual(values = getPalette(colourCount)) +
+#     theme(legend.direction = "horizontal",
+#           legend.box = "vertical",
+#           legend.position = c(0.005,0.99),
+#           legend.justification = c(0, 1),
+#           axis.text.x = element_text(angle=90, hjust=1))
 
 
 
