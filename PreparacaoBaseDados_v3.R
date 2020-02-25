@@ -94,7 +94,8 @@ fjoin_rap_leilao <- function(tabela_rap) {
   #Adiciona variáveis para serem utilizadas no fluxo de caixa descontado
   tcompleta <- tcompleta %>%
                 mutate(anos_vigencia = year(fim_de_vigencia) - year(inicio_de_vigencia),
-                       ano_inicio = year(inicio_de_vigencia) - year(data))
+                       ano_inicio = year(inicio_de_vigencia) - year(data),
+                       rel_rap_invest = rap_total_atoLegal/invest_contrato)
   
   
   #conversão para número forçada, para evitar erros posteriores
@@ -122,26 +123,27 @@ tcompleta <- fjoin_rap_leilao(tabela_rap)
 #isso pode sinalizar um avaliação de expectativa de antencipação da empresa.
 # tt  <- filter(tcompleta, operacao_comercial != inicio_de_vigencia)
 
-#Entrada em operação = a data do leilão
-
+#Entrada em operação = data do leilão
+# tt <- tcompleta %>% 
+#       filter(ano_inicio == 0) %>%
+#       filter(descricao_da_receita %>% str_detect("Considera") == FALSE)
 
 t <-  tcompleta %>%
-              # mutate(invest_contrato = round(as.numeric(invest_contrato,digits = 2))) %>%
               group_by(contrato_da_receita, leilao, lote, data, concessionaria_da_raceita, 
-                        proposta_RAP, invest_contrato, edital_rap) %>%
+                        proposta_RAP, invest_contrato, edital_rap, rap_equip_atolegal,ano_inicio, anos_vigencia) %>%
               filter(is.na(invest_contrato) == FALSE) %>%
+             # filter(ft_especifico == "LT") %>% #Filtra Funcao transmissão Linha
               summarize("Rap (MR$)" = sum(rap_equip_atolegal)/1E6,
                           rap_leilao = sum(proposta_RAP)/n(),
                           dif_rap_percent = (1E6*`Rap (MR$)` - rap_leilao)/rap_leilao*100,
-                          taxa_juros = 0.044,
-                          ano_inicio = 5)
+                          taxa_juros = 0.044)
 
 
 t1 <- tcompleta %>% filter(ft_especifico == "LT") #observar a existencia de modulos EL e RTL inclusos
 
-
-
-
+rm(t1)
+rm(tabela_rap)
+rm(tabela_x)
 
 ##### Plota gráfico de Barra Volume RAP de todos os leiloes ####
 # ggplot(t, aes(x = t$data, y = t$dif_rap_percent)) + geom_point()

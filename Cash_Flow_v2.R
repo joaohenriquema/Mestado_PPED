@@ -159,8 +159,8 @@ df_DRE["Fluxo_de_Caixa_Acumulado",1] <- df_DRE["Fluxo_de_Caixa",1]
 }
 
 
-# LoteJ <- fCash_Flow(t$contrato_da_receita[241], t$invest_contrato[241],
-#                      0.044, 5, t$proposta_RAP[241])
+LoteJ <- fCash_Flow(t$contrato_da_receita[241], t$invest_contrato[241],
+                     0.044, 5, t$proposta_RAP[241])
 
 # Lote15_a <- fCash_Flow("teste", 560497000, 0.044, 6, 61630000) - ok
 # Lote15_b <- fCash_Flow("teste", 560497000, 0.044, 5, 61630000) - ok
