@@ -63,13 +63,15 @@ impostos <- 0.09  #Estimativa da taxa dos impostos totais, exceto IR (9%)
 # Manutencao -> taxa fixa de 0,4%  - vec3
 # Treinamento -> taxa fixa de 0,14%  - vec4
 # Mao de Obra -> taxa fixa de 0,5%  - vec5
-# Servico Publico -> taxa fixa de 0,5%  - vec5
+# Servico Publico -> taxa fixa de 0,5%  - vec6
+# Amortização prevista -> Valor do investimento/(AnoFim-AnoInicio)  
 vec1 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
 vec2 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
 vec3 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
 vec4 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
 vec5 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
 vec6 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
+vec7 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
 colnames(vec1) <- sprintf("Ano %d",seq(1:max(t_in$anos_vigencia)))
 rownames(vec1) <- sprintf("Equip. %d",seq(1:length(t_in$rap_equip_atolegal)))
 vec1 <- apply(vec2, c(1, 2), function(x) 0)
@@ -78,6 +80,7 @@ vec3 <- apply(vec2, c(1, 2), function(x) 0)
 vec4 <- apply(vec2, c(1, 2), function(x) 0)
 vec5 <- apply(vec2, c(1, 2), function(x) 0)
 vec6 <- apply(vec2, c(1, 2), function(x) 0)
+vec7 <- apply(vec2, c(1, 2), function(x) 0)
 
 for (i in 1:length(t_in$rap_equip_atolegal)) {
   vec1[i, t_in$ano_inicio[i]:t_in$anos_vigencia[i]] <- 
@@ -169,8 +172,11 @@ df_DRE["Fluxo_de_Caixa_TIR",] <- colSums(df_DRE[c("Investimentos", "EBDA"),],
 df_DRE["Recursos_Proprios",] <- -df_DRE["Investimentos",]*recursos_proprios
 df_DRE["Recursos_de_Terceiros",] <- -df_DRE["Investimentos",]*(1-recursos_proprios)
 
+df_DRE["Pagamento_de_Principal",c(i:anos_Concessao)] <-
+  df_DRE["Saldo_Inicial", anoInicio]/(anos_Concessao-aux)
+
 # ##### Montagem do Fluxo de Caixa ####
-aux <- anoInicio - 1
+aux <- min(t_in$ano_inicio)
 for(i in 1:anos_Concessao) {
   if (i == 1) {
       df_DRE["Saldo_Inicial",1] <- df_DRE["Recursos_de_Terceiros",1]
@@ -182,8 +188,6 @@ for(i in 1:anos_Concessao) {
   df_DRE["Saldo_Devedor",i] <- df_DRE["Saldo_Inicial", i] + df_DRE["Pagamento_Juros", i]
   } else if (i > aux) {
     df_DRE["Saldo_Inicial", i] <- df_DRE["Saldo_Devedor", i-1]
-    df_DRE["Pagamento_de_Principal",c(i:anos_Concessao)] <-
-              df_DRE["Saldo_Inicial", anoInicio]/(anos_Concessao-aux)
     df_DRE["Pagamento_Juros", i] <- taxa_real*df_DRE["Saldo_Inicial",i]
     df_DRE["Saldo_Devedor", i] <- df_DRE["Saldo_Inicial", i] - df_DRE["Pagamento_de_Principal",i]
   }
