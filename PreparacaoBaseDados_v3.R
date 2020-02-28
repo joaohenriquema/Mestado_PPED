@@ -91,13 +91,6 @@ fjoin_rap_leilao <- function(tabela_rap) {
     select(contrato_da_receita, funcao_transmissao, rap_total_atoLegal, proposta_RAP, edital_rap,
            rap_lote_hj, rap_equip_atolegal, rap_ciclo,rap_percent_hj,modulo, everything())
   
-  #Adiciona variáveis para serem utilizadas no fluxo de caixa descontado
-  tcompleta <- tcompleta %>%
-                mutate(anos_vigencia = year(fim_de_vigencia) - year(inicio_de_vigencia),
-                       ano_inicio = year(inicio_de_vigencia) - year(data),
-                       rel_rap_invest = rap_total_atoLegal/invest_contrato)
-  
-  
   #conversão para número forçada, para evitar erros posteriores
   tcompleta$invest_contrato = round(as.numeric(tcompleta$invest_contrato), digits = 2)
   tcompleta$proposta_RAP <- as.numeric(tcompleta$proposta_RAP)
@@ -118,6 +111,13 @@ tabela_rap <- read_excel("C:/Users/João/OneDrive/Dissertação/Base de Dados AN
 
 tcompleta <- fjoin_rap_leilao(tabela_rap)
 
+#Adiciona variáveis para serem utilizadas no fluxo de caixa descontado
+tcompleta <- tcompleta %>%
+             mutate(anos_vigencia = year(fim_de_vigencia) - year(operacao_comercial),
+              ano_inicio = year(inicio_de_vigencia) - year(data)) #%>%
+              # if (is.na(tcompleta$ano_inicio) == TRUE) 
+              #   { tcompleta$ano_inicio = year(tcompleta$inicio_de_vigencia) - year(data)}
+
 #Situações para reflexão
 #A data de entrada em operação é diferente do início da vigência do contrato, 
 #isso pode sinalizar um avaliação de expectativa de antencipação da empresa.
@@ -130,20 +130,19 @@ tcompleta <- fjoin_rap_leilao(tabela_rap)
 
 t <-  tcompleta %>%
               group_by(contrato_da_receita, leilao, lote, data, concessionaria_da_raceita, 
-                        proposta_RAP, invest_contrato, edital_rap, rap_equip_atolegal,ano_inicio, anos_vigencia) %>%
+                        proposta_RAP, edital_rap, invest_contrato,rap_equip_atolegal , ano_inicio, anos_vigencia) %>%
               filter(is.na(invest_contrato) == FALSE) %>%
              # filter(ft_especifico == "LT") %>% #Filtra Funcao transmissão Linha
-              summarize("Rap (MR$)" = sum(rap_equip_atolegal)/1E6,
+              summarize("Rap (R$)" = sum(rap_equip_atolegal),
                           rap_leilao = sum(proposta_RAP)/n(),
-                          dif_rap_percent = (1E6*`Rap (MR$)` - rap_leilao)/rap_leilao*100,
                           taxa_juros = 0.044)
 
 
 t1 <- tcompleta %>% filter(ft_especifico == "LT") #observar a existencia de modulos EL e RTL inclusos
 
 rm(t1)
-rm(tabela_rap)
-rm(tabela_x)
+
+
 
 ##### Plota gráfico de Barra Volume RAP de todos os leiloes ####
 # ggplot(t, aes(x = t$data, y = t$dif_rap_percent)) + geom_point()

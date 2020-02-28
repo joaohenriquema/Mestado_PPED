@@ -14,10 +14,18 @@ library(FinancialMath)
   #Recebe a tabela derivada t do scrip Preparação base de dados, agrupados pelo nome do contrato
   #são discriminados os empreendimentos com obras com prazos diferentes
   t_in <- tcompleta %>% 
-    filter(contrato_da_receita == "001/2007")  %>%
-    mutate(taxa_juros = 0.044)                    
+    filter(contrato_da_receita == "003/2007")  %>%
+    mutate(taxa_juros = 0.04) 
 
+  t_in <- within(t_in, ano_inicio <- ifelse(is.na(ano_inicio), 
+                                            round(as.numeric(t_in$prazo_meses)/12,0), ano_inicio))
   
+  t_in <- within(t_in, anos_vigencia <- ifelse(is.na(anos_vigencia), 
+                                            (year(t_in$final_da_concessao) - year(t_in$data)-1), anos_vigencia))
+  
+  t_in %<>% select(contrato_da_receita,rap_equip_atolegal , ano_inicio, anos_vigencia, edital_rap,
+            rap_total_atoLegal, rap_ciclo,rap_percent_hj,modulo, everything())
+
 # Investimento  - alor estimado dos investimentos R$
 # Os investimentos são discriminados por grupo de equipamentos com mesmo tempo de inicio e fim do contrato
 # Os investimentos são distribuidos no tempo igualmente por simplifciação  
@@ -26,10 +34,16 @@ library(FinancialMath)
   rownames(vec1) <- sprintf("Equip. %d",seq(1:length(t_in$rap_equip_atolegal)))
   vec1 <- apply(vec1, c(1, 2), function(x) 0)
   for (i in 1:length(t_in$rap_equip_atolegal)) {
-    vec1[i, 1:t_in$ano_inicio[i]] <-
-      t_in$rap_equip_atolegal[i]/sum(t_in$rap_equip_atolegal)*t_in$invest_contrato[i]/t_in$ano_inicio[i]
+    if (max(t_in$ano_inicio) == 1) {
+      vec1[i, 1:t_in$ano_inicio[i]] <-
+        t_in$rap_equip_atolegal[i]/sum(t_in$rap_equip_atolegal)*t_in$invest_contrato[i]/(t_in$ano_inicio[i])  
+    } else {
+    vec1[i, 1:t_in$ano_inicio[i]-1] <-
+      t_in$rap_equip_atolegal[i]/sum(t_in$rap_equip_atolegal)*t_in$invest_contrato[i]/(t_in$ano_inicio[i]-1)
+    }
   }
   investimento <- (colSums(vec1)) 
+  tFimDesembolso <- length(investimento) # avaliar qual t invest é o mais adequado
 
 # receita_bruta  #Valor da RAP estimado em R$
   vec2 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
@@ -40,20 +54,18 @@ library(FinancialMath)
     vec2[i, t_in$ano_inicio[i]:t_in$anos_vigencia[i]] <-  t_in$rap_equip_atolegal[i]
   }
   receita_bruta <- (colSums(vec2))
+  tIniReceita <- min(t_in$ano_inicio) # avaliar qual t invest é o mais adequado
   #taxa_real #Estimativa de juros real 
   taxa_real <- as.numeric(t_in$taxa_juros[i])
   
   #Ajusta o comprimento dos vetores 
-  length(investimento) <- max(length(receita_bruta), length(investimento))                      
-  length(receita_bruta) <- max(length(receita_bruta), length(investimento)) 
+  length(investimento) <- max(length(receita_bruta), length(investimento))
+  length(receita_bruta) <- max(length(receita_bruta), length(investimento))
+  investimento <- replace_na(investimento,0)
+  receita_bruta <- replace_na(receita_bruta,0)
   
   rm(vec1,vec2)
   
-  investimento <- replace_na(investimento,0)
-  receita_bruta <- replace_na(receita_bruta,0)
-  tt <- rbind(investimento, receita_bruta) %>% replace_na(0)
-  
-  rm(tt)
 ##### Dados parametrizados para estimativa dos Custos Fixos ####
 impostos <- 0.09  #Estimativa da taxa dos impostos totais, exceto IR (9%)
 
@@ -71,7 +83,7 @@ vec3 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vige
 vec4 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
 vec5 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
 vec6 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
-vec7 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
+# vec7 <- matrix(nrow = length(t_in$rap_equip_atolegal), ncol = max(t_in$anos_vigencia))
 colnames(vec1) <- sprintf("Ano %d",seq(1:max(t_in$anos_vigencia)))
 rownames(vec1) <- sprintf("Equip. %d",seq(1:length(t_in$rap_equip_atolegal)))
 vec1 <- apply(vec2, c(1, 2), function(x) 0)
@@ -80,7 +92,7 @@ vec3 <- apply(vec2, c(1, 2), function(x) 0)
 vec4 <- apply(vec2, c(1, 2), function(x) 0)
 vec5 <- apply(vec2, c(1, 2), function(x) 0)
 vec6 <- apply(vec2, c(1, 2), function(x) 0)
-vec7 <- apply(vec2, c(1, 2), function(x) 0)
+vec6 <- apply(vec2, c(1, 2), function(x) 0)
 
 for (i in 1:length(t_in$rap_equip_atolegal)) {
   vec1[i, t_in$ano_inicio[i]:t_in$anos_vigencia[i]] <- 
@@ -100,6 +112,9 @@ for (i in 1:length(t_in$rap_equip_atolegal)) {
   
   vec6[i, t_in$ano_inicio[i]:t_in$anos_vigencia[i]] <- 
     0.005*(t_in$rap_equip_atolegal[i]/sum(t_in$rap_equip_atolegal))*t_in$invest_contrato[i]
+  
+  # vec7[i, t_in$ano_inicio[i]:t_in$anos_vigencia[i]] <-
+  #   (t_in$rap_equip_atolegal[i]/sum(t_in$rap_equip_atolegal))*t_in$invest_contrato[i]/(t_in$anos_vigencia[i]-t_in$ano_inicio[i])
 }
 
 custos_admin <- (colSums(vec1))
@@ -107,7 +122,9 @@ custo_fixo_depreciacao <- colSums(vec2)
 manutencao <- colSums(vec3) 
 treinamento <- colSums(vec4)
 mao_de_obra <- colSums(vec5)
-servico_publico <- colSums(vec5)
+servico_publico <- colSums(vec6)
+# vec7 <- replace_na(vec7,0)
+# amortizacao <- colSums(vec7)
 
 rm(vec1,vec2, vec3, vec4, vec5, vec6)
 
@@ -116,7 +133,7 @@ imposto_de_renda <- 0.15
 total_Invest <- sum(investimento)
 
 ##### Dados parametrizados para estimativa do funding ####
-recursos_proprios <- .3 #Fração dos investimentos com recursos próprios
+recursos_proprios <- .4 #Fração dos investimentos com recursos próprios
 
 ####Criação da tabela de dados####
 var_DRE <- c("Receita_Bruta", "Impostos", "Receita_Liquida", "Custos_Fixos_Admin",
@@ -137,7 +154,7 @@ rm(receita)
 df_DRE["Receita_Bruta",] <- receita_bruta
 df_DRE["Investimentos", ] <- investimento
 df_DRE["Impostos",] <- impostos*df_DRE["Receita_Bruta",]
-df_DRE["Receita_Liquida",] <- df_DRE["Receita_Bruta",]-df_DRE["Impostos",]
+df_DRE["Receita_Liquida",] <- df_DRE["Receita_Bruta",] - df_DRE["Impostos",]
 
 
 
@@ -157,6 +174,7 @@ df_DRE["Lucro_Bruto",] <- df_DRE["Receita_Liquida",] - df_DRE["Total_Custos",]
 df_DRE["Imposto_de_Renda",] <- df_DRE["Lucro_Bruto",]*imposto_de_renda
 df_DRE["Lucro_Liquido",] <- df_DRE["Lucro_Bruto",] - df_DRE["Imposto_de_Renda",]
 df_DRE["EBDA",] <- df_DRE["Lucro_Liquido",] + df_DRE["Custos_Fixos_Depreciacao",]
+# df_DRE["Pagamento_de_Principal",] <- amortizacao
 
 ####### Quadro de usos e fontes #  Substituido pela alacoção feita discretizada por equipamento ####
 # aux <- anoInicio-1
@@ -172,37 +190,59 @@ df_DRE["Fluxo_de_Caixa_TIR",] <- colSums(df_DRE[c("Investimentos", "EBDA"),],
 df_DRE["Recursos_Proprios",] <- -df_DRE["Investimentos",]*recursos_proprios
 df_DRE["Recursos_de_Terceiros",] <- -df_DRE["Investimentos",]*(1-recursos_proprios)
 
-df_DRE["Pagamento_de_Principal",c(i:anos_Concessao)] <-
-  df_DRE["Saldo_Inicial", anoInicio]/(anos_Concessao-aux)
-
 # ##### Montagem do Fluxo de Caixa ####
-aux <- min(t_in$ano_inicio)
-for(i in 1:anos_Concessao) {
-  if (i == 1) {
-      df_DRE["Saldo_Inicial",1] <- df_DRE["Recursos_de_Terceiros",1]
-      df_DRE["Pagamento_Juros",1] <- taxa_real*df_DRE["Saldo_Inicial",1]
-      df_DRE["Saldo_Devedor",1] <- df_DRE["Saldo_Inicial",1] + df_DRE["Pagamento_Juros",1]
-  } else if (i>1 & i <= aux) {
-  df_DRE["Saldo_Inicial", i] <- df_DRE["Saldo_Devedor", i-1] + df_DRE["Recursos_de_Terceiros", i]
-  df_DRE["Pagamento_Juros", i] <- taxa_real*df_DRE["Saldo_Inicial",i]
-  df_DRE["Saldo_Devedor",i] <- df_DRE["Saldo_Inicial", i] + df_DRE["Pagamento_Juros", i]
-  } else if (i > aux) {
-    df_DRE["Saldo_Inicial", i] <- df_DRE["Saldo_Devedor", i-1]
-    df_DRE["Pagamento_Juros", i] <- taxa_real*df_DRE["Saldo_Inicial",i]
-    df_DRE["Saldo_Devedor", i] <- df_DRE["Saldo_Inicial", i] - df_DRE["Pagamento_de_Principal",i]
+tmax <- max(t_in$anos_vigencia)
+tmin <- min(t_in$ano_inicio)
+
+for(i in 1:tmax) {
+  if (max(t_in$ano_inicio) == 1) {
+    # Pensar no código para tal condição
+  } else {
+    if (i == 1) {
+      #Condição para incialização do fluxo de caixa
+        df_DRE["Saldo_Inicial",1] <- df_DRE["Recursos_de_Terceiros",1]
+        df_DRE["Pagamento_Juros",1] <- taxa_real*df_DRE["Saldo_Inicial",1]
+        df_DRE["Saldo_Devedor",1] <- df_DRE["Saldo_Inicial",1] + df_DRE["Pagamento_Juros",1]
+        df_DRE["Pagamento_de_Principal",1] <- 0
+    } else if (i> 1 & i < tIniReceita) {
+      # Constrói o período que há investimento mas não há receita, 
+      # nesse momento não faz sentido desembolso do principal e do pgto juros acumula totalmente
+      df_DRE["Saldo_Inicial", i] <- df_DRE["Saldo_Devedor", i-1] + df_DRE["Recursos_de_Terceiros", i]
+      df_DRE["Pagamento_Juros", i] <- taxa_real*df_DRE["Saldo_Inicial",i]
+      df_DRE["Saldo_Devedor",i] <- df_DRE["Saldo_Inicial",i] + df_DRE["Pagamento_Juros",i]
+      df_DRE["Pagamento_de_Principal",i] <- 0
+    } else if (i>=tIniReceita & i < tFimDesembolso) {
+      # Constrói o período que há investimento e receita, o saldo devedor tem uma parcela abatida e outra acrescida
+      # nesse momento há pagamento de parte do emprestimo, o pgto principal varia no tempo
+      df_DRE["Saldo_Inicial", i] <- df_DRE["Saldo_Devedor", i-1] + df_DRE["Recursos_de_Terceiros", i]
+      df_DRE["Pagamento_Juros", i] <- taxa_real*df_DRE["Saldo_Inicial",i]
+      df_DRE["Pagamento_de_Principal",i] <- df_DRE["Saldo_Devedor",i-1]/(tmax - i +1)
+      df_DRE["Saldo_Devedor",i] <- df_DRE["Saldo_Inicial",i] + df_DRE["Pagamento_Juros",i] - df_DRE["Pagamento_de_Principal",i]
+    } else if (i == tFimDesembolso) {
+      # É definido o saldo devedor a ser amortizado
+      df_DRE["Saldo_Inicial", i] <- df_DRE["Saldo_Devedor", i-1] + df_DRE["Recursos_de_Terceiros", i]
+      df_DRE["Pagamento_Juros", i] <- taxa_real*df_DRE["Saldo_Inicial",i]
+      df_DRE["Pagamento_de_Principal",i:tmax] <- df_DRE["Saldo_Devedor",i-1]/(tmax - i +1)
+      df_DRE["Saldo_Devedor",i] <- df_DRE["Saldo_Inicial", i] - df_DRE["Pagamento_de_Principal",i]
+    } else if (i > tFimDesembolso) {
+      df_DRE["Saldo_Inicial", i] <- df_DRE["Saldo_Devedor", i-1] + df_DRE["Recursos_de_Terceiros", i]
+      df_DRE["Pagamento_Juros", i] <- taxa_real*df_DRE["Saldo_Inicial",i]
+      df_DRE["Saldo_Devedor",i] <- df_DRE["Saldo_Inicial", i] - df_DRE["Pagamento_de_Principal",i]
+      }
+    }
   }
-}
-
-df_DRE["Fluxo_de_Caixa_TIR",] <- df_DRE["EBDA",] + df_DRE["Investimentos",]
-df_DRE["Fluxo_de_Caixa",c(anoInicio:anos_Concessao)] <-  df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] +
-                df_DRE["Recursos_Proprios", c(anoInicio:anos_Concessao)] - df_DRE["Recursos_de_Terceiros",c(anoInicio:anos_Concessao)] -
-                df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)] - df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)]
 
 
-df_DRE["Fluxo_de_Caixa_Acumulado",] <- lag(df_DRE["Fluxo_de_Caixa_Acumulado",],1) + df_DRE["Fluxo_de_Caixa",]
-df_DRE["Fluxo_de_Caixa_Acumulado",1] <- df_DRE["Fluxo_de_Caixa",1]
-#
-# ##### Cálculo dos Índices de Cobertura #####
+
+df_DRE["Fluxo_de_Caixa",] <-  df_DRE["EBDA",] - df_DRE["Pagamento_Juros",] -
+                            df_DRE["Pagamento_de_Principal",]
+df_DRE <- df_DRE/1E6
+# 
+df_DRE["Fluxo_de_Caixa_Acumulado",] <- df_DRE["Fluxo_de_Caixa",]
+
+df_DRE["Fluxo_de_Caixa_Acumulado",] <- cumsum(as.list(df_DRE["Fluxo_de_Caixa_Acumulado",]))
+# #
+# # ##### Cálculo dos Índices de Cobertura #####
 #   df_DRE["ICSD_Caixa_Anual",] <- df_DRE["EBDA",]/( df_DRE["Pagamento_Juros",]+ df_DRE["Pagamento_de_Principal",])
 #   df_DRE["ICSD_Caixa_Acumulado",c(anoInicio:anos_Concessao)] <-
 #     (df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] +
@@ -210,17 +250,17 @@ df_DRE["Fluxo_de_Caixa_Acumulado",1] <- df_DRE["Fluxo_de_Caixa",1]
 #     ( df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)]+
 #         df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)])
 #   df_DRE["ICSD_Caixa_Acumulado",anoInicio] <- df_DRE["ICSD_Caixa_Anual",anoInicio]
-#
-#
-# ##### Fluxo de caixa para os Acionistas #####
-#   df_DRE["Fluxo_Caixa_TIR_Acionista",c(1:anoInicio)] <- -df_DRE["Recursos_Proprios",c(1:anoInicio)]
-#   df_DRE["Fluxo_Caixa_TIR_Acionista",c(anoInicio:anos_Concessao)] <- df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] -
-#   df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)] - df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)]
-#
-# ##### Cálculo da TIR ####
-#   vetorTIR <- as.vector(as.numeric(df_DRE["Fluxo_de_Caixa_TIR",]))
+# 
+# #
+# # ##### Fluxo de caixa para os Acionistas #####
+# #   df_DRE["Fluxo_Caixa_TIR_Acionista",c(1:anoInicio)] <- -df_DRE["Recursos_Proprios",c(1:anoInicio)]
+# #   df_DRE["Fluxo_Caixa_TIR_Acionista",c(anoInicio:anos_Concessao)] <- df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] -
+# #   df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)] - df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)]
+# #
+# # ##### Cálculo da TIR ####
+  vetorTIR <- as.vector(as.numeric(df_DRE["Fluxo_de_Caixa_TIR",]))
 #   vetorTIR_Acionista <- as.vector(as.numeric(df_DRE["Fluxo_Caixa_TIR_Acionista",]))
-#   TIR = IRR(cf0 = 0, cf=vetorTIR,times = c(1:anos_Concessao), plot = FALSE)
+  TIR = IRR(cf0 = 0, cf=vetorTIR,times = c(1:max(t_in$anos_vigencia)), plot = FALSE)
 #   TIR_ACIONISTA <- IRR(cf0 = 0, cf=vetorTIR_Acionista,times = c(1:anos_Concessao), plot = FALSE)
 #   Saida <- list(Lote = nome, TIR = TIR[1], TIR_ACIONISTA = TIR_ACIONISTA[1],
 #                 Indice_Cobertura = df_DRE["ICSD_Caixa_Anual",anoInicio],
