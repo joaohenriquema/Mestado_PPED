@@ -14,7 +14,7 @@ library(FinancialMath)
   #Recebe a tabela derivada t do scrip Preparação base de dados, agrupados pelo nome do contrato
   #são discriminados os empreendimentos com obras com prazos diferentes
   t_in <- tcompleta %>% 
-    filter(contrato_da_receita == "003/2007")  %>%
+    filter(contrato_da_receita == "003/2007")  %>% 
     mutate(taxa_juros = 0.04) 
 
   t_in <- within(t_in, ano_inicio <- ifelse(is.na(ano_inicio), 
