@@ -9,23 +9,24 @@ library(lubridate)
 library(reshape2)
 library(FinancialMath)
 
-# 
-# fCash_Flow <- function(t_in) {
-  #Recebe a tabela derivada t do scrip Preparação base de dados, agrupados pelo nome do contrato
-  #são discriminados os empreendimentos com obras com prazos diferentes
-  t_in <- tcompleta %>% 
-    filter(contrato_da_receita == "003/2007")  %>% 
-    mutate(taxa_juros = 0.04) 
 
+fCash_Flow_BD <- function(t_in) {
+# Recebe a tabela derivada t do scrip Preparação base de dados, agrupados pelo nome do contrato
+# são discriminados os empreendimentos com obras com prazos diferentes
+  
+  t_in <- within(t_in, ano_inicio <- ifelse(ano_inicio == 0, 1, ano_inicio))
+  
   t_in <- within(t_in, ano_inicio <- ifelse(is.na(ano_inicio), 
                                             round(as.numeric(t_in$prazo_meses)/12,0), ano_inicio))
   
   t_in <- within(t_in, anos_vigencia <- ifelse(is.na(anos_vigencia), 
                                             (year(t_in$final_da_concessao) - year(t_in$data)-1), anos_vigencia))
   
-  t_in %<>% select(contrato_da_receita,rap_equip_atolegal , ano_inicio, anos_vigencia, edital_rap,
-            rap_total_atoLegal, rap_ciclo,rap_percent_hj,modulo, everything())
+  t_in <- within(t_in, TJLP <- ifelse(is.na(t_in$TJLP),0.055, t_in$TJLP))
 
+   t_in %<>% select(contrato_da_receita,rap_equip_atolegal , ano_inicio, anos_vigencia, edital_rap,
+            rap_total_atoLegal, rap_ciclo,rap_percent_hj,modulo, everything())
+ 
 # Investimento  - alor estimado dos investimentos R$
 # Os investimentos são discriminados por grupo de equipamentos com mesmo tempo de inicio e fim do contrato
 # Os investimentos são distribuidos no tempo igualmente por simplifciação  
@@ -56,7 +57,7 @@ library(FinancialMath)
   receita_bruta <- (colSums(vec2))
   tIniReceita <- min(t_in$ano_inicio) # avaliar qual t invest é o mais adequado
   #taxa_real #Estimativa de juros real 
-  taxa_real <- as.numeric(t_in$taxa_juros[i])
+  taxa_real <- as.numeric(t_in$TJLP[i])
   
   #Ajusta o comprimento dos vetores 
   length(investimento) <- max(length(receita_bruta), length(investimento))
@@ -197,6 +198,18 @@ tmin <- min(t_in$ano_inicio)
 for(i in 1:tmax) {
   if (max(t_in$ano_inicio) == 1) {
     # Pensar no código para tal condição
+    if (i == 1) {
+      #Condição para incialização do fluxo de caixa
+      df_DRE["Saldo_Inicial",1] <- df_DRE["Recursos_de_Terceiros",1]
+      df_DRE["Pagamento_Juros",1] <- taxa_real*df_DRE["Saldo_Inicial",1]
+      df_DRE["Saldo_Devedor",1] <- df_DRE["Saldo_Inicial",1] + df_DRE["Pagamento_Juros",1]
+      df_DRE["Pagamento_de_Principal",1] <- 0
+    } else if (i> 1) {
+      df_DRE["Saldo_Inicial", i] <- df_DRE["Saldo_Devedor", i-1] + df_DRE["Recursos_de_Terceiros", i]
+      df_DRE["Pagamento_Juros", i] <- taxa_real*df_DRE["Saldo_Inicial",i]
+      df_DRE["Pagamento_de_Principal",i:tmax] <- df_DRE["Saldo_Devedor",i-1]/(tmax - i +1)
+      df_DRE["Saldo_Devedor",i] <- df_DRE["Saldo_Inicial", i] - df_DRE["Pagamento_de_Principal",i]
+    }
   } else {
     if (i == 1) {
       #Condição para incialização do fluxo de caixa
@@ -243,29 +256,31 @@ df_DRE["Fluxo_de_Caixa_Acumulado",] <- df_DRE["Fluxo_de_Caixa",]
 df_DRE["Fluxo_de_Caixa_Acumulado",] <- cumsum(as.list(df_DRE["Fluxo_de_Caixa_Acumulado",]))
 # #
 # # ##### Cálculo dos Índices de Cobertura #####
-#   df_DRE["ICSD_Caixa_Anual",] <- df_DRE["EBDA",]/( df_DRE["Pagamento_Juros",]+ df_DRE["Pagamento_de_Principal",])
-#   df_DRE["ICSD_Caixa_Acumulado",c(anoInicio:anos_Concessao)] <-
-#     (df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] +
-#        lag(df_DRE["Fluxo_de_Caixa_Acumulado",c(anoInicio:anos_Concessao)], 1))/
-#     ( df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)]+
-#         df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)])
-#   df_DRE["ICSD_Caixa_Acumulado",anoInicio] <- df_DRE["ICSD_Caixa_Anual",anoInicio]
+  df_DRE["ICSD_Caixa_Anual",] <- df_DRE["EBDA",]/(df_DRE["Pagamento_Juros",]+ df_DRE["Pagamento_de_Principal",])
+  # df_DRE["ICSD_Caixa_Acumulado",] <-
+  #   (df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] +
+  #      lag(df_DRE["Fluxo_de_Caixa_Acumulado",c(anoInicio:anos_Concessao)], 1))/
+  #   ( df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)]+
+  #       df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)])
+  # df_DRE["ICSD_Caixa_Acumulado",anoInicio] <- df_DRE["ICSD_Caixa_Anual",anoInicio]
 # 
 # #
 # # ##### Fluxo de caixa para os Acionistas #####
-# #   df_DRE["Fluxo_Caixa_TIR_Acionista",c(1:anoInicio)] <- -df_DRE["Recursos_Proprios",c(1:anoInicio)]
-# #   df_DRE["Fluxo_Caixa_TIR_Acionista",c(anoInicio:anos_Concessao)] <- df_DRE["Fluxo_de_Caixa_TIR",c(anoInicio:anos_Concessao)] -
-# #   df_DRE["Pagamento_Juros",c(anoInicio:anos_Concessao)] - df_DRE["Pagamento_de_Principal",c(anoInicio:anos_Concessao)]
-# #
+  df_DRE["Fluxo_Caixa_TIR_Acionista",] <- df_DRE["Fluxo_de_Caixa_TIR",] -
+  df_DRE["Recursos_Proprios",]
+
 # # ##### Cálculo da TIR ####
   vetorTIR <- as.vector(as.numeric(df_DRE["Fluxo_de_Caixa_TIR",]))
-#   vetorTIR_Acionista <- as.vector(as.numeric(df_DRE["Fluxo_Caixa_TIR_Acionista",]))
+  vetorTIR_Acionista <- as.vector(as.numeric(df_DRE["Fluxo_Caixa_TIR_Acionista",]))
   TIR = IRR(cf0 = 0, cf=vetorTIR,times = c(1:max(t_in$anos_vigencia)), plot = FALSE)
-#   TIR_ACIONISTA <- IRR(cf0 = 0, cf=vetorTIR_Acionista,times = c(1:anos_Concessao), plot = FALSE)
-#   Saida <- list(Lote = nome, TIR = TIR[1], TIR_ACIONISTA = TIR_ACIONISTA[1],
-#                 Indice_Cobertura = df_DRE["ICSD_Caixa_Anual",anoInicio],
-#                 AnoInicio = anoInicio, Juros = taxa_real)
-#   return(Saida)
-# }
+  TIR_ACIONISTA <- IRR(cf0 = 0, cf=vetorTIR_Acionista,times = c(1:max(t_in$anos_vigencia)), plot = FALSE)
+  Saida <- list(Lote = t_in$contrato_da_receita[1], TIR = TIR[1], TIR_ACIONISTA = TIR_ACIONISTA[1],
+                Indice_Cobertura = df_DRE["ICSD_Caixa_Anual",max(t_in$ano_inicio)],
+                Juros = t_in$TJLP[1], t_in) # DRE = df_DRE)
+  return(Saida)
+}
 
+t_in <- tcompleta %>% 
+  filter(contrato_da_receita == "013/2007") 
 
+a <- fCash_Flow_BD (t_in)
